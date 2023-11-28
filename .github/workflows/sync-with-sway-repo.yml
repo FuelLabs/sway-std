@@ -14,23 +14,29 @@ jobs:
     permissions:
       contents: write
 
-
     steps:
     - name: Checkout std-mirror
       uses: actions/checkout@v2
       with:
         repository: 'FuelLabs/sway-std'
         token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Get previous tag
+      id: previoustag
+      uses: "WyriHaximus/github-action-get-previous-tag@v1"
+      with:
+        fallback: 0.0.0
 
     - name: Check Latest Release in Sway Repo
       id: sway-repo-release
       run: |
-        LATEST_TAG=$(curl -s https://api.github.com/repos/FuelLabs/sway/releases/latest | jq -r '.tag_name')
-        echo "Latest Release Tag in Sway is $LATEST_TAG"
-        echo "::set-output name=tag::$LATEST_TAG"
+        LATEST_SWAY_TAG=$(curl -s https://api.github.com/repos/FuelLabs/sway/releases/latest | jq -r '.tag_name')
+        echo "Latest Release Tag in Sway is $LATEST_SWAY_TAG"
+        echo "::set-output name=tag::$LATEST_SWAY_TAG"
 
     - name: Clone Specific Directories from Sway Repo
-      if: steps.sway-repo-release.outputs.tag != ''
+      if: steps.sway-repo-release.outputs.tag != steps.previoustag.outputs.tag
       run: |
         git clone --no-checkout https://github.com/FuelLabs/sway
         cd sway
@@ -40,7 +46,7 @@ jobs:
         cd ..
 
     - name: Copy directories to sway-std
-      if: steps.sway-repo-release.outputs.tag != ''
+      if: steps.sway-repo-release.outputs.tag != steps.previoustag.outputs.tag
       run: |
         rm -rf sway-lib-std
         rm -rf sway-lib-core
@@ -49,11 +55,11 @@ jobs:
         rm -rf sway
 
     - name: Commit & Push Changes
-      if: steps.sway-repo-release.outputs.tag != ''
+      if: steps.sway-repo-release.outputs.tag != steps.previoustag.outputs.tag
       uses: stefanzweifel/git-auto-commit-action@v5
 
     - name: Create a new tag in sway-std
-      if: steps.sway-repo-release.outputs.tag != ''
+      if: steps.sway-repo-release.outputs.tag != steps.previoustag.outputs.tag
       run: |
         git tag ${{ steps.sway-repo-release.outputs.tag }}
         git push origin ${{ steps.sway-repo-release.outputs.tag }}
